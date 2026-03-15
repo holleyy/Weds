@@ -1,6 +1,130 @@
 import { useNavigate } from "react-router";
-import { Trophy, Vote, Users, BarChart3, Film, Sparkles } from "lucide-react";
+import { Trophy, Vote, Users, BarChart3, Film, Sparkles, Lock } from "lucide-react";
 import { useEffect, useState } from "react";
+import { CEREMONY_TIME, LOCK_TIME } from "../data/ceremony";
+
+function useCountdown(target: Date) {
+  const [diff, setDiff] = useState(() => target.getTime() - Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setDiff(target.getTime() - Date.now()), 1000);
+    return () => clearInterval(id);
+  }, [target]);
+  return diff;
+}
+
+function pad(n: number) {
+  return String(Math.max(0, n)).padStart(2, "0");
+}
+
+function CountdownUnit({ value, label }: { value: string; label: string }) {
+  return (
+    <div className="flex flex-col items-center gap-1">
+      <div className="text-3xl sm:text-4xl font-bold tabular-nums tracking-tight text-foreground">
+        {value}
+      </div>
+      <div className="text-[10px] uppercase tracking-widest text-muted-foreground font-medium">
+        {label}
+      </div>
+    </div>
+  );
+}
+
+function CeremonyCountdown() {
+  const msUntilCeremony = useCountdown(CEREMONY_TIME);
+  const msUntilLock = useCountdown(LOCK_TIME);
+
+  const ceremonyStarted = msUntilCeremony <= 0;
+  const isLocked = msUntilLock <= 0;
+
+  const gmtString = CEREMONY_TIME.toLocaleTimeString("en-GB", {
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "UTC",
+    hour12: false,
+  });
+  const dateString = CEREMONY_TIME.toLocaleDateString("en-GB", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    timeZone: "UTC",
+  });
+
+  if (ceremonyStarted) {
+    return (
+      <div className="rounded-xl border border-primary/30 bg-primary/5 p-5 mb-8 text-center">
+        <Trophy className="w-8 h-8 text-primary mx-auto mb-2" />
+        <p className="text-base font-semibold text-foreground">The ceremony has begun!</p>
+        <p className="text-sm text-muted-foreground mt-1">Watch the results come in on the Stats page</p>
+      </div>
+    );
+  }
+
+  if (isLocked) {
+    return (
+      <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-5 mb-8 text-center">
+        <Lock className="w-6 h-6 text-amber-400 mx-auto mb-2" />
+        <p className="text-base font-semibold text-amber-300">Ballots are locked</p>
+        <p className="text-sm text-muted-foreground mt-1">
+          Ceremony starts at {gmtString} GMT — good luck!
+        </p>
+      </div>
+    );
+  }
+
+  const totalSeconds = Math.floor(msUntilCeremony / 1000);
+  const days    = Math.floor(totalSeconds / 86400);
+  const hours   = Math.floor((totalSeconds % 86400) / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+
+  const lockSeconds = Math.floor(msUntilLock / 1000);
+  const lockHours   = Math.floor(lockSeconds / 3600);
+  const lockMins    = Math.floor((lockSeconds % 3600) / 60);
+
+  return (
+    <div className="rounded-xl border border-border bg-card p-5 sm:p-7 mb-8">
+      <div className="flex items-center gap-2 mb-5">
+        <Trophy className="w-4 h-4 text-primary" />
+        <span className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+          Ceremony Countdown
+        </span>
+      </div>
+
+      {/* Timer */}
+      <div className="flex items-start justify-center gap-3 sm:gap-5 mb-5">
+        {days > 0 && (
+          <>
+            <CountdownUnit value={pad(days)} label="days" />
+            <div className="text-2xl font-light text-muted-foreground/40 mt-1">:</div>
+          </>
+        )}
+        <CountdownUnit value={pad(hours)} label="hrs" />
+        <div className="text-2xl font-light text-muted-foreground/40 mt-1">:</div>
+        <CountdownUnit value={pad(minutes)} label="mins" />
+        <div className="text-2xl font-light text-muted-foreground/40 mt-1">:</div>
+        <CountdownUnit value={pad(seconds)} label="secs" />
+      </div>
+
+      {/* Ceremony info */}
+      <div className="text-center border-t border-border/50 pt-4 space-y-0.5">
+        <p className="text-sm font-medium text-foreground">{dateString}</p>
+        <p className="text-sm text-muted-foreground">{gmtString} GMT</p>
+      </div>
+
+      {/* Lock warning */}
+      <div className="mt-4 flex items-center justify-center gap-1.5 text-xs text-muted-foreground/70">
+        <Lock className="w-3 h-3" />
+        <span>
+          Ballots lock in{" "}
+          <span className="text-foreground font-medium">
+            {lockHours > 0 ? `${lockHours}h ${pad(lockMins)}m` : `${lockMins}m`}
+          </span>
+        </span>
+      </div>
+    </div>
+  );
+}
 
 export function HomePage() {
   const navigate = useNavigate();
@@ -48,7 +172,7 @@ export function HomePage() {
   return (
     <div className="max-w-3xl mx-auto pb-24 sm:pb-8">
       {/* Welcome */}
-      <div className="mb-10">
+      <div className="mb-8">
         <p className="text-xs uppercase tracking-widest text-primary mb-2 font-medium">
           98th Academy Awards
         </p>
@@ -56,6 +180,9 @@ export function HomePage() {
           Welcome, {username}
         </h1>
       </div>
+
+      {/* Countdown */}
+      <CeremonyCountdown />
 
       {/* Action Grid */}
       <div className="grid gap-3 sm:grid-cols-2 mb-10">

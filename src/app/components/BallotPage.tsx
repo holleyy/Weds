@@ -13,6 +13,7 @@ import {
   ChevronRight,
   Pencil,
   CircleMinus,
+  Lock,
 } from "lucide-react";
 import { Button } from "./ui/button";
 import { RadioGroup, RadioGroupItem } from "./ui/radio-group";
@@ -21,6 +22,7 @@ import { Progress } from "./ui/progress";
 import { toast } from "sonner";
 import { categories, Category } from "../data/categories";
 import { projectId, publicAnonKey } from "/utils/supabase/info";
+import { LOCK_TIME } from "../data/ceremony";
 import { getSeenNomineesForCategory } from "../utils/filmCategories";
 
 interface BallotPicks {
@@ -46,6 +48,13 @@ export function BallotPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isLocked, setIsLocked] = useState(() => Date.now() >= LOCK_TIME.getTime());
+
+  // Re-check lock state every second so the UI reacts in real time
+  useEffect(() => {
+    const id = setInterval(() => setIsLocked(Date.now() >= LOCK_TIME.getTime()), 1000);
+    return () => clearInterval(id);
+  }, []);
 
   const currentCategory = categories[currentCategoryIndex];
   const completedCount = Object.keys(picks).filter(
@@ -209,6 +218,10 @@ export function BallotPage() {
   };
 
   const enterEditMode = (categoryIndex?: number) => {
+    if (isLocked) {
+      toast.error("Ballots are locked — the ceremony is starting soon!");
+      return;
+    }
     if (categoryIndex !== undefined) {
       setCurrentCategoryIndex(categoryIndex);
     }
@@ -281,7 +294,19 @@ export function BallotPage() {
           </div>
         </div>
 
-        {isSubmitted && (
+        {isLocked ? (
+          <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3.5 mb-6 flex items-center gap-3">
+            <div className="w-6 h-6 rounded-full bg-amber-500/10 flex items-center justify-center flex-shrink-0">
+              <Lock className="w-3.5 h-3.5 text-amber-400" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-amber-300">Ballots are locked</p>
+              <p className="text-xs text-amber-400/60">
+                No further changes can be made — good luck tonight!
+              </p>
+            </div>
+          </div>
+        ) : isSubmitted && (
           <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-3.5 mb-6 flex items-center gap-3">
             <div className="w-6 h-6 rounded-full bg-emerald-500/10 flex items-center justify-center flex-shrink-0">
               <Check className="w-3.5 h-3.5 text-emerald-400" />
@@ -289,7 +314,7 @@ export function BallotPage() {
             <div>
               <p className="text-sm font-medium text-emerald-400">Ballot Submitted</p>
               <p className="text-xs text-emerald-400/60">
-                You can still edit your picks until the ceremony starts.
+                You can still edit your picks until 10:30 PM GMT.
               </p>
             </div>
           </div>
@@ -312,7 +337,8 @@ export function BallotPage() {
               <button
                 key={category.id}
                 onClick={() => enterEditMode(index)}
-                className="w-full text-left rounded-xl border border-border bg-card overflow-hidden transition-all hover:border-primary/20 group"
+                disabled={isLocked}
+                className={`w-full text-left rounded-xl border border-border bg-card overflow-hidden transition-all ${isLocked ? "cursor-default opacity-75" : "hover:border-primary/20 group"}`}
               >
                 {/* Category Header */}
                 <div className="px-4 py-3 border-b border-border/50 bg-muted/20 flex items-center justify-between">
@@ -392,28 +418,30 @@ export function BallotPage() {
           })}
         </div>
 
-        {/* Floating Edit Button */}
-        <div className="fixed bottom-20 sm:bottom-8 left-1/2 -translate-x-1/2 z-40 flex gap-2">
-          <Button
-            onClick={() => enterEditMode(0)}
-            size="sm"
-            className="shadow-lg shadow-primary/20 gap-2 rounded-full px-5"
-          >
-            <Pencil className="w-3.5 h-3.5" />
-            Edit Ballot
-          </Button>
-          {completedCount === categories.length && !isSubmitted && (
+        {/* Floating Edit / Submit Button */}
+        {!isLocked && (
+          <div className="fixed bottom-20 sm:bottom-8 left-1/2 -translate-x-1/2 z-40 flex gap-2">
             <Button
-              onClick={handleSubmit}
-              disabled={isSaving}
+              onClick={() => enterEditMode(0)}
               size="sm"
-              className="shadow-lg bg-emerald-600 hover:bg-emerald-700 text-white rounded-full px-5 gap-2"
+              className="shadow-lg shadow-primary/20 gap-2 rounded-full px-5"
             >
-              <Check className="w-3.5 h-3.5" />
-              Submit
+              <Pencil className="w-3.5 h-3.5" />
+              Edit Ballot
             </Button>
-          )}
-        </div>
+            {completedCount === categories.length && !isSubmitted && (
+              <Button
+                onClick={handleSubmit}
+                disabled={isSaving}
+                size="sm"
+                className="shadow-lg bg-emerald-600 hover:bg-emerald-700 text-white rounded-full px-5 gap-2"
+              >
+                <Check className="w-3.5 h-3.5" />
+                Submit
+              </Button>
+            )}
+          </div>
+        )}
       </div>
     );
   }
@@ -618,7 +646,7 @@ export function BallotPage() {
             variant="outline"
             size="sm"
             onClick={() => saveBallot(false)}
-            disabled={isSaving}
+            disabled={isSaving || isLocked}
           >
             {isSaving ? "Saving..." : "Save"}
           </Button>
@@ -626,7 +654,7 @@ export function BallotPage() {
           {currentCategoryIndex === categories.length - 1 ? (
             <Button
               onClick={handleSubmit}
-              disabled={isSaving}
+              disabled={isSaving || isLocked}
               size="sm"
               className="bg-emerald-600 hover:bg-emerald-700 text-white"
             >
