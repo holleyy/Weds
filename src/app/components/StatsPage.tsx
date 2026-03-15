@@ -30,15 +30,20 @@ export function StatsPage() {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
   useEffect(() => {
-    Promise.all([
+    Promise.allSettled([
       fetch(`${API}/stats`, { headers: HEADERS }).then((r) => r.json()),
       fetch(`${API}/winners`, { headers: HEADERS }).then((r) => r.json()),
     ])
-      .then(([statsData, winnersData]) => {
-        setStats(statsData);
-        if (winnersData.winners) setWinners(winnersData.winners);
+      .then(([statsResult, winnersResult]) => {
+        if (statsResult.status === "fulfilled") {
+          setStats(statsResult.value);
+        } else {
+          toast.error("Failed to load stats");
+        }
+        if (winnersResult.status === "fulfilled" && winnersResult.value.winners) {
+          setWinners(winnersResult.value.winners);
+        }
       })
-      .catch(() => toast.error("Failed to load stats"))
       .finally(() => setIsLoading(false));
   }, []);
 

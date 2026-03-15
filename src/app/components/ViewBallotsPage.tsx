@@ -40,15 +40,20 @@ export function ViewBallotsPage() {
   const [selectedBallot, setSelectedBallot] = useState<Ballot | null>(null);
 
   useEffect(() => {
-    Promise.all([
+    Promise.allSettled([
       fetch(`${API}/ballots/submitted`, { headers: HEADERS }).then((r) => r.json()),
       fetch(`${API}/winners`, { headers: HEADERS }).then((r) => r.json()),
     ])
-      .then(([ballotsData, winnersData]) => {
-        if (ballotsData.ballots) setBallots(ballotsData.ballots);
-        if (winnersData.winners) setWinners(winnersData.winners);
+      .then(([ballotsResult, winnersResult]) => {
+        if (ballotsResult.status === "fulfilled") {
+          if (ballotsResult.value.ballots) setBallots(ballotsResult.value.ballots);
+        } else {
+          toast.error("Failed to load ballots");
+        }
+        if (winnersResult.status === "fulfilled" && winnersResult.value.winners) {
+          setWinners(winnersResult.value.winners);
+        }
       })
-      .catch(() => toast.error("Failed to load ballots"))
       .finally(() => setIsLoading(false));
   }, []);
 
