@@ -73,15 +73,26 @@ app.post("/make-server-02e825ae/login", async (c) => {
       return c.json({ error: "Username and PIN are required" }, 400);
     }
 
+    // Hardcoded admin account
+    if (username === "Admin" && pin === "Winner") {
+      return c.json({
+        success: true,
+        userId: "admin",
+        username: "Admin",
+        isAdmin: true,
+      });
+    }
+
     const user = await kv.get(`user:${username}`);
     if (!user || user.pin !== pin) {
       return c.json({ error: "Invalid username or PIN" }, 401);
     }
 
-    return c.json({ 
-      success: true, 
+    return c.json({
+      success: true,
       userId: user.id,
-      username: user.username 
+      username: user.username,
+      isAdmin: false,
     });
   } catch (error) {
     console.log(`Error during login: ${error}`);
@@ -233,6 +244,38 @@ app.get("/make-server-02e825ae/film-log/:userId", async (c) => {
   } catch (error) {
     console.log(`Error fetching film log: ${error}`);
     return c.json({ error: `Failed to fetch film log: ${error}` }, 500);
+  }
+});
+
+// Get current winners (public)
+app.get("/make-server-02e825ae/winners", async (c) => {
+  try {
+    const winners = await kv.get("winners");
+    return c.json({ winners: winners || {} });
+  } catch (error) {
+    console.log(`Error fetching winners: ${error}`);
+    return c.json({ error: `Failed to fetch winners: ${error}` }, 500);
+  }
+});
+
+// Set winners (admin only)
+app.post("/make-server-02e825ae/winners", async (c) => {
+  try {
+    const { username, pin, winners } = await c.req.json();
+
+    if (username !== "Admin" || pin !== "Winner") {
+      return c.json({ error: "Unauthorized" }, 401);
+    }
+
+    if (!winners || typeof winners !== "object") {
+      return c.json({ error: "Winners data is required" }, 400);
+    }
+
+    await kv.set("winners", winners);
+    return c.json({ success: true });
+  } catch (error) {
+    console.log(`Error saving winners: ${error}`);
+    return c.json({ error: `Failed to save winners: ${error}` }, 500);
   }
 });
 

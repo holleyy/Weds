@@ -8,6 +8,7 @@ export interface Category {
   id: string;
   name: string;
   nominees: Nominee[];
+  winner?: string; // nominee ID of the actual winner, set by admin after the ceremony
 }
 
 export const categories: Category[] = [

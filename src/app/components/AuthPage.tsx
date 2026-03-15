@@ -42,10 +42,11 @@ export function AuthPage() {
       localStorage.setItem("oscarUser", JSON.stringify({
         userId: data.userId,
         username: data.username,
+        isAdmin: data.isAdmin || false,
       }));
 
       toast.success("Welcome back!");
-      navigate("/home");
+      navigate(data.isAdmin ? "/admin" : "/home");
     } catch (error) {
       console.error("Login error:", error);
       toast.error("Failed to login. Please try again.");

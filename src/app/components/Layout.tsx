@@ -1,11 +1,11 @@
 import { Outlet, useNavigate, useLocation } from "react-router";
-import { Trophy, Users, BarChart3, LogOut, Vote, Film } from "lucide-react";
+import { Trophy, Users, BarChart3, LogOut, Vote, Film, Shield } from "lucide-react";
 import { useEffect, useState } from "react";
 
 export function Layout() {
   const navigate = useNavigate();
   const location = useLocation();
-  const [user, setUser] = useState<{ userId: string; username: string } | null>(null);
+  const [user, setUser] = useState<{ userId: string; username: string; isAdmin?: boolean } | null>(null);
 
   useEffect(() => {
     const storedUser = localStorage.getItem("oscarUser");
@@ -30,12 +30,14 @@ export function Layout() {
 
   const isAuthPage = location.pathname === "/";
 
-  const navItems = [
-    { path: "/ballot", icon: Vote, label: "Ballot" },
-    { path: "/film-log", icon: Film, label: "Films" },
-    { path: "/view-ballots", icon: Users, label: "Ballots" },
-    { path: "/stats", icon: BarChart3, label: "Stats" },
-  ];
+  const navItems = user?.isAdmin
+    ? [{ path: "/admin", icon: Shield, label: "Admin" }]
+    : [
+        { path: "/ballot", icon: Vote, label: "Ballot" },
+        { path: "/film-log", icon: Film, label: "Films" },
+        { path: "/view-ballots", icon: Users, label: "Ballots" },
+        { path: "/stats", icon: BarChart3, label: "Stats" },
+      ];
 
   return (
     <div className="min-h-screen bg-background text-foreground">
