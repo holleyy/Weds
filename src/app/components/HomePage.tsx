@@ -1,7 +1,12 @@
 import { useNavigate } from "react-router";
-import { Trophy, Vote, Users, BarChart3, Film, Sparkles, Lock } from "lucide-react";
+import { Trophy, Vote, Users, BarChart3, Film, Sparkles, Lock, Star } from "lucide-react";
 import { useEffect, useState } from "react";
 import { CEREMONY_TIME, LOCK_TIME } from "../data/ceremony";
+import { categories } from "../data/categories";
+import { projectId, publicAnonKey } from "/utils/supabase/info";
+
+const API = `https://${projectId}.supabase.co/functions/v1/make-server-02e825ae`;
+const HEADERS = { Authorization: `Bearer ${publicAnonKey}` };
 
 function useCountdown(target: Date) {
   const [diff, setDiff] = useState(() => target.getTime() - Date.now());
@@ -126,9 +131,14 @@ function CeremonyCountdown() {
   );
 }
 
+interface WinnersMap {
+  [categoryId: string]: string; // nominee ID
+}
+
 export function HomePage() {
   const navigate = useNavigate();
   const [username, setUsername] = useState<string | null>(null);
+  const [winners, setWinners] = useState<WinnersMap>({});
 
   useEffect(() => {
     const storedUser = localStorage.getItem("oscarUser");
@@ -137,6 +147,16 @@ export function HomePage() {
       setUsername(user.username);
     }
   }, []);
+
+  useEffect(() => {
+    fetch(`${API}/winners`, { headers: HEADERS })
+      .then((r) => r.json())
+      .then((data) => { if (data.winners) setWinners(data.winners); })
+      .catch(() => {});
+  }, []);
+
+  const announcedWinners = categories.filter((c) => winners[c.id]);
+
 
   const actions = [
     {
@@ -187,6 +207,46 @@ export function HomePage() {
 
       {/* Countdown */}
       <CeremonyCountdown />
+
+      {/* Winners */}
+      {announcedWinners.length > 0 && (
+        <div className="mb-8">
+          <div className="flex items-center gap-2 mb-4">
+            <Star className="w-4 h-4 text-amber-400 fill-amber-400" />
+            <h2 className="text-sm font-semibold uppercase tracking-widest text-amber-400">
+              Winners Announced
+            </h2>
+            <span className="text-xs text-muted-foreground ml-auto">
+              {announcedWinners.length} / {categories.length}
+            </span>
+          </div>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {announcedWinners.map((cat) => {
+              const nominee = cat.nominees.find((n) => n.id === winners[cat.id]);
+              if (!nominee) return null;
+              return (
+                <div
+                  key={cat.id}
+                  className="rounded-xl border border-amber-500/30 bg-amber-500/5 px-4 py-3 flex items-start gap-3"
+                >
+                  <Trophy className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
+                  <div className="min-w-0">
+                    <p className="text-xs text-amber-400/70 font-medium uppercase tracking-wide truncate">
+                      {cat.name}
+                    </p>
+                    <p className="text-sm font-semibold text-amber-100 leading-snug">
+                      {nominee.name}
+                    </p>
+                    {nominee.film !== nominee.name && (
+                      <p className="text-xs text-muted-foreground truncate">{nominee.film}</p>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Action Grid */}
       <div className="grid gap-3 sm:grid-cols-2 mb-10">
