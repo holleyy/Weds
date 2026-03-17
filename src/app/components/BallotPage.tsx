@@ -70,7 +70,7 @@ export function BallotPage() {
   const loadBallot = async () => {
     const storedUser = localStorage.getItem("oscarUser");
     if (!storedUser) {
-      navigate("/");
+      navigate("/login");
       return;
     }
 

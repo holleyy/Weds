@@ -48,7 +48,7 @@ export function FilmLogPage() {
   const loadFilmLog = async () => {
     const storedUser = localStorage.getItem("oscarUser");
     if (!storedUser) {
-      navigate("/");
+      navigate("/login");
       return;
     }
 

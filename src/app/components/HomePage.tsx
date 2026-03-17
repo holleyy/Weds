@@ -128,7 +128,7 @@ function CeremonyCountdown() {
 
 export function HomePage() {
   const navigate = useNavigate();
-  const [username, setUsername] = useState("");
+  const [username, setUsername] = useState<string | null>(null);
 
   useEffect(() => {
     const storedUser = localStorage.getItem("oscarUser");
@@ -145,6 +145,7 @@ export function HomePage() {
       icon: Vote,
       path: "/ballot",
       accent: true,
+      requiresAuth: true,
     },
     {
       title: "Film Log",
@@ -152,6 +153,7 @@ export function HomePage() {
       icon: Film,
       path: "/film-log",
       accent: true,
+      requiresAuth: true,
     },
     {
       title: "View Ballots",
@@ -159,6 +161,7 @@ export function HomePage() {
       icon: Users,
       path: "/view-ballots",
       accent: false,
+      requiresAuth: false,
     },
     {
       title: "Statistics",
@@ -166,6 +169,7 @@ export function HomePage() {
       icon: BarChart3,
       path: "/stats",
       accent: false,
+      requiresAuth: false,
     },
   ];
 
@@ -177,7 +181,7 @@ export function HomePage() {
           98th Academy Awards
         </p>
         <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-foreground">
-          Welcome, {username}
+          {username ? `Welcome, ${username}` : "Oscars Sweepstakes"}
         </h1>
       </div>
 
@@ -186,29 +190,32 @@ export function HomePage() {
 
       {/* Action Grid */}
       <div className="grid gap-3 sm:grid-cols-2 mb-10">
-        {actions.map(({ title, description, icon: Icon, path, accent }) => (
-          <button
-            key={path}
-            onClick={() => navigate(path)}
-            className="group text-left rounded-xl border border-border bg-card p-5 transition-all hover:border-primary/30 hover:bg-card/80"
-          >
-            <div className="flex items-start gap-4">
-              <div className={`flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center ${
-                accent ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
-              }`}>
-                <Icon className="w-5 h-5" />
+        {actions.map(({ title, description, icon: Icon, path, accent, requiresAuth }) => {
+          const locked = requiresAuth && !username;
+          return (
+            <button
+              key={path}
+              onClick={() => navigate(locked ? "/login" : path)}
+              className="group text-left rounded-xl border border-border bg-card p-5 transition-all hover:border-primary/30 hover:bg-card/80"
+            >
+              <div className="flex items-start gap-4">
+                <div className={`flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center ${
+                  accent && !locked ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
+                }`}>
+                  {locked ? <Lock className="w-5 h-5" /> : <Icon className="w-5 h-5" />}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-semibold text-foreground mb-0.5 group-hover:text-primary transition-colors">
+                    {title}
+                  </h3>
+                  <p className="text-sm text-muted-foreground leading-relaxed">
+                    {locked ? "Sign in to access" : description}
+                  </p>
+                </div>
               </div>
-              <div className="flex-1 min-w-0">
-                <h3 className="font-semibold text-foreground mb-0.5 group-hover:text-primary transition-colors">
-                  {title}
-                </h3>
-                <p className="text-sm text-muted-foreground leading-relaxed">
-                  {description}
-                </p>
-              </div>
-            </div>
-          </button>
-        ))}
+            </button>
+          );
+        })}
       </div>
 
       {/* How it works */}

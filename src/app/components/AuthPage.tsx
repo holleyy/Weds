@@ -46,7 +46,7 @@ export function AuthPage() {
       }));
 
       toast.success("Welcome back!");
-      navigate(data.isAdmin ? "/admin" : "/home");
+      navigate(data.isAdmin ? "/admin" : "/");
     } catch (error) {
       console.error("Login error:", error);
       toast.error("Failed to login. Please try again.");
@@ -100,7 +100,7 @@ export function AuthPage() {
       }));
 
       toast.success("Account created successfully!");
-      navigate("/home");
+      navigate("/");
     } catch (error) {
       console.error("Signup error:", error);
       toast.error("Failed to create account. Please try again.");

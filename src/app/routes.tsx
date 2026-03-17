@@ -13,7 +13,8 @@ export const router = createHashRouter([
     path: "/",
     Component: Layout,
     children: [
-      { index: true, Component: AuthPage },
+      { index: true, Component: HomePage },
+      { path: "login", Component: AuthPage },
       { path: "home", Component: HomePage },
       { path: "ballot", Component: BallotPage },
       { path: "view-ballots", Component: ViewBallotsPage },

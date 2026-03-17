@@ -1,5 +1,5 @@
 import { Outlet, useNavigate, useLocation } from "react-router";
-import { Trophy, Users, BarChart3, LogOut, Vote, Film, Shield } from "lucide-react";
+import { Trophy, Users, BarChart3, LogOut, Vote, Film, Shield, LogIn } from "lucide-react";
 import { useEffect, useState } from "react";
 
 export function Layout() {
@@ -11,10 +11,10 @@ export function Layout() {
     const storedUser = localStorage.getItem("oscarUser");
     if (storedUser) {
       setUser(JSON.parse(storedUser));
-    } else if (location.pathname !== "/") {
-      navigate("/");
+    } else {
+      setUser(null);
     }
-  }, [navigate, location.pathname]);
+  }, [location.pathname]);
 
   const handleLogout = () => {
     localStorage.removeItem("oscarUser");
@@ -22,18 +22,18 @@ export function Layout() {
     navigate("/");
   };
 
-  const handleHeaderClick = () => {
-    if (user && location.pathname !== "/home") {
-      navigate("/home");
-    }
-  };
-
-  const isAuthPage = location.pathname === "/";
+  const isLoginPage = location.pathname === "/login";
 
   const navItems = user?.isAdmin
     ? [{ path: "/admin", icon: Shield, label: "Admin" }]
-    : [
+    : user
+    ? [
         { path: "/ballot", icon: Vote, label: "Ballot" },
+        { path: "/film-log", icon: Film, label: "Films" },
+        { path: "/view-ballots", icon: Users, label: "Ballots" },
+        { path: "/stats", icon: BarChart3, label: "Stats" },
+      ]
+    : [
         { path: "/film-log", icon: Film, label: "Films" },
         { path: "/view-ballots", icon: Users, label: "Ballots" },
         { path: "/stats", icon: BarChart3, label: "Stats" },
@@ -41,12 +41,12 @@ export function Layout() {
 
   return (
     <div className="min-h-screen bg-background text-foreground">
-      {!isAuthPage && user && (
+      {!isLoginPage && (
         <header className="sticky top-0 z-50 border-b border-border/50 bg-background/80 backdrop-blur-xl">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex items-center justify-between h-14">
               <button
-                onClick={handleHeaderClick}
+                onClick={() => navigate("/")}
                 className="flex items-center gap-2.5 hover:opacity-80 transition-opacity"
               >
                 <Trophy className="w-6 h-6 text-primary" />
@@ -55,15 +55,27 @@ export function Layout() {
                 </span>
               </button>
               <div className="flex items-center gap-3">
-                <span className="text-xs text-muted-foreground hidden sm:inline tracking-wide uppercase">
-                  {user.username}
-                </span>
-                <button
-                  onClick={handleLogout}
-                  className="text-muted-foreground hover:text-foreground transition-colors p-1.5"
-                >
-                  <LogOut className="w-4 h-4" />
-                </button>
+                {user ? (
+                  <>
+                    <span className="text-xs text-muted-foreground hidden sm:inline tracking-wide uppercase">
+                      {user.username}
+                    </span>
+                    <button
+                      onClick={handleLogout}
+                      className="text-muted-foreground hover:text-foreground transition-colors p-1.5"
+                    >
+                      <LogOut className="w-4 h-4" />
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    onClick={() => navigate("/login")}
+                    className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors px-3 py-1.5 rounded-lg hover:bg-muted"
+                  >
+                    <LogIn className="w-4 h-4" />
+                    <span>Sign In</span>
+                  </button>
+                )}
               </div>
             </div>
           </div>
@@ -74,7 +86,7 @@ export function Layout() {
         <Outlet />
       </main>
 
-      {!isAuthPage && user && (
+      {!isLoginPage && (
         <nav className="fixed bottom-0 left-0 right-0 border-t border-border/50 bg-background/90 backdrop-blur-xl sm:hidden z-50">
           <div className="flex items-center justify-around h-14 max-w-md mx-auto">
             {navItems.map(({ path, icon: Icon, label }) => {
@@ -84,9 +96,7 @@ export function Layout() {
                   key={path}
                   onClick={() => navigate(path)}
                   className={`flex flex-col items-center gap-0.5 px-4 py-1.5 transition-colors ${
-                    isActive
-                      ? "text-primary"
-                      : "text-muted-foreground"
+                    isActive ? "text-primary" : "text-muted-foreground"
                   }`}
                 >
                   <Icon className="w-5 h-5" />
@@ -94,6 +104,17 @@ export function Layout() {
                 </button>
               );
             })}
+            {!user && (
+              <button
+                onClick={() => navigate("/login")}
+                className={`flex flex-col items-center gap-0.5 px-4 py-1.5 transition-colors ${
+                  isLoginPage ? "text-primary" : "text-muted-foreground"
+                }`}
+              >
+                <LogIn className="w-5 h-5" />
+                <span className="text-[10px] font-medium tracking-wide">Sign In</span>
+              </button>
+            )}
           </div>
         </nav>
       )}
