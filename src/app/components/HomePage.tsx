@@ -1,12 +1,81 @@
 import { useNavigate } from "react-router";
-import { Trophy, Vote, Users, BarChart3, Film, Sparkles, Lock, Star } from "lucide-react";
-import { useEffect, useState } from "react";
+import { Trophy, Vote, Users, BarChart3, Film, Sparkles, Lock, Star, Crown } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { CEREMONY_TIME, LOCK_TIME } from "../data/ceremony";
 import { categories } from "../data/categories";
 import { projectId, publicAnonKey } from "/utils/supabase/info";
 
 const API = `https://${projectId}.supabase.co/functions/v1/make-server-02e825ae`;
 const HEADERS = { Authorization: `Bearer ${publicAnonKey}` };
+
+// ── Confetti ────────────────────────────────────────────────────────────────
+
+function fireConfetti(originEl: HTMLElement) {
+  const canvas = document.createElement("canvas");
+  canvas.style.cssText =
+    "position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:9999";
+  document.body.appendChild(canvas);
+  const ctx = canvas.getContext("2d")!;
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+
+  const rect = originEl.getBoundingClientRect();
+  const ox = rect.left + rect.width / 2;
+  const oy = rect.top + rect.height / 2;
+
+  const COLORS = ["#f59e0b", "#fbbf24", "#fcd34d", "#ffffff", "#f97316", "#ec4899", "#a78bfa", "#34d399"];
+
+  type Shape = "rect" | "circle";
+  const particles = Array.from({ length: 130 }, () => {
+    const angle = Math.random() * Math.PI * 2;
+    const speed = 4 + Math.random() * 9;
+    return {
+      x: ox, y: oy,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed - 5,
+      color: COLORS[Math.floor(Math.random() * COLORS.length)],
+      size: 6 + Math.random() * 8,
+      rot: Math.random() * Math.PI * 2,
+      rotSpeed: (Math.random() - 0.5) * 0.22,
+      maxLife: 100 + Math.floor(Math.random() * 80),
+      shape: (Math.random() > 0.5 ? "rect" : "circle") as Shape,
+    };
+  });
+
+  let frame = 0;
+  function tick() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    let alive = false;
+    for (const p of particles) {
+      p.vy += 0.18;
+      p.x += p.vx;
+      p.y += p.vy;
+      p.rot += p.rotSpeed;
+      const life = Math.max(0, 1 - frame / p.maxLife);
+      if (life <= 0) continue;
+      alive = true;
+      ctx.save();
+      ctx.globalAlpha = life;
+      ctx.translate(p.x, p.y);
+      ctx.rotate(p.rot);
+      ctx.fillStyle = p.color;
+      if (p.shape === "rect") {
+        ctx.fillRect(-p.size / 2, -p.size / 4, p.size, p.size / 2);
+      } else {
+        ctx.beginPath();
+        ctx.arc(0, 0, p.size / 2, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.restore();
+    }
+    frame++;
+    if (alive) requestAnimationFrame(tick);
+    else canvas.remove();
+  }
+  requestAnimationFrame(tick);
+}
+
+// ── Countdown ───────────────────────────────────────────────────────────────
 
 function useCountdown(target: Date) {
   const [diff, setDiff] = useState(() => target.getTime() - Date.now());
@@ -37,22 +106,14 @@ function CountdownUnit({ value, label }: { value: string; label: string }) {
 function CeremonyCountdown() {
   const msUntilCeremony = useCountdown(CEREMONY_TIME);
   const msUntilLock = useCountdown(LOCK_TIME);
-
   const ceremonyStarted = msUntilCeremony <= 0;
   const isLocked = msUntilLock <= 0;
 
   const gmtString = CEREMONY_TIME.toLocaleTimeString("en-GB", {
-    hour: "2-digit",
-    minute: "2-digit",
-    timeZone: "UTC",
-    hour12: false,
+    hour: "2-digit", minute: "2-digit", timeZone: "UTC", hour12: false,
   });
   const dateString = CEREMONY_TIME.toLocaleDateString("en-GB", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-    timeZone: "UTC",
+    weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: "UTC",
   });
 
   if (ceremonyStarted) {
@@ -95,8 +156,6 @@ function CeremonyCountdown() {
           Ceremony Countdown
         </span>
       </div>
-
-      {/* Timer */}
       <div className="flex items-start justify-center gap-3 sm:gap-5 mb-5">
         {days > 0 && (
           <>
@@ -110,14 +169,10 @@ function CeremonyCountdown() {
         <div className="text-2xl font-light text-muted-foreground/40 mt-1">:</div>
         <CountdownUnit value={pad(seconds)} label="secs" />
       </div>
-
-      {/* Ceremony info */}
       <div className="text-center border-t border-border/50 pt-4 space-y-0.5">
         <p className="text-sm font-medium text-foreground">{dateString}</p>
         <p className="text-sm text-muted-foreground">{gmtString} GMT</p>
       </div>
-
-      {/* Lock warning */}
       <div className="mt-4 flex items-center justify-center gap-1.5 text-xs text-muted-foreground/70">
         <Lock className="w-3 h-3" />
         <span>
@@ -131,66 +186,66 @@ function CeremonyCountdown() {
   );
 }
 
-interface WinnersMap {
-  [categoryId: string]: string; // nominee ID
+// ── Types ────────────────────────────────────────────────────────────────────
+
+interface WinnersMap { [categoryId: string]: string }
+interface Ballot {
+  userId: string;
+  username: string;
+  ballot: { [categoryId: string]: { willWin: string; shouldWin: string } };
 }
+
+function computeScore(ballot: Ballot["ballot"], winners: WinnersMap) {
+  let correct = 0;
+  for (const catId of Object.keys(winners)) {
+    if (ballot[catId]?.willWin === winners[catId]) correct++;
+  }
+  return correct;
+}
+
+// ── Main ─────────────────────────────────────────────────────────────────────
 
 export function HomePage() {
   const navigate = useNavigate();
   const [username, setUsername] = useState<string | null>(null);
   const [winners, setWinners] = useState<WinnersMap>({});
+  const [ballots, setBallots] = useState<Ballot[]>([]);
+  const poolBoxRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const storedUser = localStorage.getItem("oscarUser");
-    if (storedUser) {
-      const user = JSON.parse(storedUser);
-      setUsername(user.username);
-    }
+    if (storedUser) setUsername(JSON.parse(storedUser).username);
   }, []);
 
   useEffect(() => {
-    fetch(`${API}/winners`, { headers: HEADERS })
-      .then((r) => r.json())
-      .then((data) => { if (data.winners) setWinners(data.winners); })
-      .catch(() => {});
+    Promise.allSettled([
+      fetch(`${API}/winners`, { headers: HEADERS }).then((r) => r.json()),
+      fetch(`${API}/ballots/submitted`, { headers: HEADERS }).then((r) => r.json()),
+    ]).then(([winnersResult, ballotsResult]) => {
+      if (winnersResult.status === "fulfilled" && winnersResult.value.winners)
+        setWinners(winnersResult.value.winners);
+      if (ballotsResult.status === "fulfilled" && ballotsResult.value.ballots)
+        setBallots(ballotsResult.value.ballots);
+    });
   }, []);
 
+  const decidedCount = Object.keys(winners).length;
+  const allDecided = decidedCount === categories.length;
   const announcedWinners = categories.filter((c) => winners[c.id]);
 
+  // Pool leaders / winners
+  const poolLeaders = (() => {
+    if (decidedCount === 0 || ballots.length === 0) return [];
+    const scored = ballots.map((b) => ({ username: b.username, score: computeScore(b.ballot, winners) }));
+    const best = Math.max(...scored.map((s) => s.score));
+    return scored.filter((s) => s.score === best).map((s) => ({ ...s, total: decidedCount }));
+  })();
 
   const actions = [
-    {
-      title: "Your Ballot",
-      description: "Create or edit your Oscar predictions",
-      icon: Vote,
-      path: "/ballot",
-      accent: true,
-      requiresAuth: true,
-    },
-    {
-      title: "Film Log",
-      description: "Track which nominated films you've watched",
-      icon: Film,
-      path: "/film-log",
-      accent: true,
-      requiresAuth: true,
-    },
-    {
-      title: "View Ballots",
-      description: "See predictions from other participants",
-      icon: Users,
-      path: "/view-ballots",
-      accent: false,
-      requiresAuth: false,
-    },
-    {
-      title: "Statistics",
-      description: "See how everyone is voting across categories",
-      icon: BarChart3,
-      path: "/stats",
-      accent: false,
-      requiresAuth: false,
-    },
+    { title: "Your Ballot", description: "Create or edit your Oscar predictions", icon: Vote, path: "/ballot", accent: true, requiresAuth: true },
+    { title: "Film Log", description: "Track which nominated films you've watched", icon: Film, path: "/film-log", accent: true, requiresAuth: true },
+    { title: "View Ballots", description: "See predictions from other participants", icon: Users, path: "/view-ballots", accent: false, requiresAuth: false },
+    { title: "Statistics", description: "See how everyone is voting across categories", icon: BarChart3, path: "/stats", accent: false, requiresAuth: false },
   ];
 
   return (
@@ -208,7 +263,43 @@ export function HomePage() {
       {/* Countdown */}
       <CeremonyCountdown />
 
-      {/* Winners */}
+      {/* Pool leaders / winners */}
+      {poolLeaders.length > 0 && (
+        <div
+          ref={poolBoxRef}
+          onClick={() => poolBoxRef.current && fireConfetti(poolBoxRef.current)}
+          className="mb-8 rounded-xl border-2 border-amber-400/60 bg-gradient-to-br from-amber-500/10 via-amber-400/5 to-amber-500/10 p-5 cursor-pointer select-none transition-transform active:scale-[0.98]"
+        >
+          <div className="flex items-center gap-2 mb-3">
+            <Crown className="w-5 h-5 text-amber-400 fill-amber-400/20" />
+            <h2 className="text-sm font-bold uppercase tracking-widest text-amber-400">
+              {allDecided ? "Pool Winner" : "Leading the Pool"}
+              {poolLeaders.length > 1 ? "s" : ""}
+            </h2>
+            <span className="ml-auto text-xs text-amber-400/60 font-medium">
+              {poolLeaders[0].score} / {decidedCount} correct
+            </span>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            {poolLeaders.map(({ username: name }) => (
+              <span
+                key={name}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-400/15 border border-amber-400/30 text-amber-100 font-semibold text-sm"
+              >
+                <Trophy className="w-3.5 h-3.5 text-amber-400" />
+                {name}
+              </span>
+            ))}
+          </div>
+
+          <p className="mt-3 text-[11px] text-amber-400/40 text-center">
+            tap for a surprise ✨
+          </p>
+        </div>
+      )}
+
+      {/* Category winners */}
       {announcedWinners.length > 0 && (
         <div className="mb-8">
           <div className="flex items-center gap-2 mb-4">
